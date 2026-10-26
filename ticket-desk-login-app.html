@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Map Operations Ticket Desk</title>
+<style>
+:root{--bg:#eef1ee;--card:#fff;--ink:#1c2a2a;--mute:#5d6d6b;--line:#cfd8d5;--accent:#0f6b63;--road:#f2b705;--bad:#b3261e;--ok:#1b7a3a}
+@media (prefers-color-scheme:dark){:root{--bg:#141b1b;--card:#1d2626;--ink:#e6efed;--mute:#9db0ad;--line:#33423f;--accent:#4cc3b6;--bad:#ff8a80;--ok:#6fd48c}}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.5 "Segoe UI",system-ui,sans-serif}
+.wrap{max-width:620px;margin:0 auto;padding:24px 16px}
+h1{margin:0 0 6px;font-size:24px;border-bottom:4px solid var(--road);padding-bottom:8px}
+h2{margin:0 0 8px;font-size:17px}
+.sub{color:var(--mute);margin:8px 0 16px}
+section,.card{background:var(--card);border:1px solid var(--line);border-radius:6px;padding:16px 18px;margin-bottom:16px}
+label{display:block;margin:10px 0 4px;font-weight:600}
+.opt{display:inline-block;font-weight:400;margin:4px 14px 4px 0}
+input[type=text],input[type=password],select{width:100%;padding:8px 10px;border:1px solid var(--line);border-radius:4px;background:var(--bg);color:var(--ink);font:inherit}
+button{padding:8px 16px;border:0;border-radius:4px;background:var(--accent);color:#fff;font:inherit;cursor:pointer}
+button.alt{background:transparent;color:var(--accent);border:1px solid var(--accent)}
+button:disabled{opacity:.45;cursor:not-allowed}
+button:focus-visible,input:focus-visible,select:focus-visible{outline:3px solid var(--road);outline-offset:1px}
+.msg{margin-top:10px;padding:8px 10px;border-radius:4px;font-weight:600}
+.msg.err{background:#fde7e5;color:var(--bad)}
+.msg.ok{background:#e1f4e7;color:var(--ok)}
+@media (prefers-color-scheme:dark){.msg.err{background:#3a1d1b}.msg.ok{background:#1b3324}}
+.badge{display:inline-block;padding:1px 10px;border-radius:10px;background:var(--road);color:#1c2a2a;font-size:14px;font-weight:600}
+.badge.done{background:var(--ok);color:#fff}
+.bar{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:12px}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <!-- LOGIN SCREEN -->
+  <div id="login-view">
+    <h1>Map Operations Login</h1>
+    <p class="sub">Sign in with your employee ID to open the ticket desk.</p>
+    <div class="card">
+      <label for="emp-id">Employee ID</label>
+      <input type="text" id="emp-id" autocomplete="off">
+      <label for="password">Password</label>
+      <input type="password" id="password" autocomplete="off">
+      <p><button id="sign-in">Sign in</button></p>
+      <div id="login-error" class="msg err" role="alert" hidden></div>
+    </div>
+    <p class="sub">Practice logins: EMP1001 with password Map@123 works. EMP9999 is a locked account.</p>
+  </div>
+
+  <!-- TICKET DESK (shown after login) -->
+  <div id="app-view" hidden>
+    <div class="bar">
+      <h1 style="flex:1;margin:0">Ticket desk</h1>
+      <button id="logout" class="alt">Log out</button>
+    </div>
+    <p id="welcome" class="sub"></p>
+
+    <section>
+      <h2>Step 1: Open the ticket</h2>
+      <label for="ticket-id">Ticket ID</label>
+      <input type="text" id="ticket-id" placeholder="Example: TCK-8812">
+      <p><button id="open-btn">Open ticket</button></p>
+      <div id="open-error" class="msg err" role="alert" hidden></div>
+      <div id="ticket-panel" hidden>
+        <p><strong>Ticket type:</strong> <span id="ticket-type"></span></p>
+        <p><strong>User concern:</strong> <span id="concern"></span></p>
+        <p><strong>Status:</strong> <span id="status" class="badge">Open</span></p>
+      </div>
+    </section>
+
+    <section>
+      <h2>Step 2: Check the evidence</h2>
+      <label class="opt"><input type="checkbox" name="evidence"> Street view</label>
+      <label class="opt"><input type="checkbox" name="evidence"> Policy document</label>
+      <label class="opt"><input type="checkbox" name="evidence"> Local authority notice</label>
+    </section>
+
+    <section>
+      <h2>Step 3: Make the change</h2>
+      <div id="panel-address" hidden>
+        <label for="new-address">Corrected address</label>
+        <input type="text" id="new-address" placeholder="Example: 45B Lakeview Road">
+      </div>
+      <div id="panel-highway" hidden>
+        <label for="new-highway">New highway name</label>
+        <input type="text" id="new-highway" placeholder="Example: Route 66">
+      </div>
+      <div id="panel-closure" hidden>
+        <label for="closure-status">Closure status</label>
+        <select id="closure-status">
+          <option value="">Select status</option>
+          <option value="open">Open</option>
+          <option value="closed">Closed</option>
+        </select>
+      </div>
+      <p id="no-type" class="sub">Open a ticket to see the field for its type.</p>
+    </section>
+
+    <section>
+      <h2>Step 4: Resolve</h2>
+      <button id="resolve-btn" disabled>Resolve ticket</button>
+      <div id="resolve-error" class="msg err" role="alert" hidden></div>
+      <div id="resolve-ok" class="msg ok" role="status" hidden></div>
+      <p id="result-detail"></p>
+    </section>
+  </div>
+</div>
+
+<script>
+const USERS={'EMP1001':{password:'Map@123',name:'Ravi Kumar'}};
+const LOCKED=['EMP9999'];
+const TICKETS={
+  'TCK-1092':{type:'address',label:'House address',concern:'House number shows 45A but the delivery address is 45B.'},
+  'TCK-8812':{type:'highway',label:'Highway name',concern:'Unnamed highway segment should be named Route 66.'},
+  'TCK-4401':{type:'closure',label:'Road closure',concern:'Main Street is closed for construction.'}
+};
+const $=id=>document.getElementById(id);
+let current=null,currentType=null;
+
+function say(id,text){const e=$(id);e.textContent=text;e.hidden=false;}
+function showPanel(type){
+  ['address','highway','closure'].forEach(p=>$('panel-'+p).hidden=(p!==type));
+  $('no-type').hidden=!!type;
+}
+function clearTicketMessages(){
+  ['open-error','resolve-error','resolve-ok'].forEach(i=>$(i).hidden=true);
+  $('result-detail').textContent='';
+}
+function resetDesk(){
+  clearTicketMessages();
+  $('ticket-id').value='';$('new-address').value='';$('new-highway').value='';$('closure-status').value='';
+  document.querySelectorAll('input[name=evidence]').forEach(c=>c.checked=false);
+  $('ticket-panel').hidden=true;$('resolve-btn').disabled=true;current=null;currentType=null;showPanel(null);
+}
+
+$('sign-in').addEventListener('click',()=>{
+  $('login-error').hidden=true;
+  const id=$('emp-id').value.trim().toUpperCase();
+  const pw=$('password').value;
+  if(!id){say('login-error','Enter your employee ID.');return;}
+  if(!pw){say('login-error','Enter your password.');return;}
+  if(LOCKED.includes(id)){say('login-error','This account is locked. Contact your supervisor.');return;}
+  const u=USERS[id];
+  if(!u||u.password!==pw){say('login-error','Employee ID or password is incorrect.');return;}
+  $('welcome').textContent='Welcome, '+u.name+' ('+id+')';
+  $('login-view').hidden=true;$('app-view').hidden=false;
+});
+
+$('logout').addEventListener('click',()=>{
+  resetDesk();
+  $('emp-id').value='';$('password').value='';$('login-error').hidden=true;
+  $('app-view').hidden=true;$('login-view').hidden=false;
+});
+
+$('open-btn').addEventListener('click',()=>{
+  clearTicketMessages();
+  const id=$('ticket-id').value.trim().toUpperCase();
+  if(!id){say('open-error','Enter a ticket ID.');return;}
+  const t=TICKETS[id];
+  if(!t){
+    $('ticket-panel').hidden=true;$('resolve-btn').disabled=true;current=null;currentType=null;showPanel(null);
+    say('open-error','Ticket '+id+' was not found.');
+    return;
+  }
+  current=id;currentType=t.type;
+  $('ticket-type').textContent=t.label;
+  $('concern').textContent=t.concern;
+  $('status').textContent='Open';$('status').classList.remove('done');
+  $('ticket-panel').hidden=false;
+  showPanel(t.type);
+  $('resolve-btn').disabled=false;
+});
+
+$('resolve-btn').addEventListener('click',()=>{
+  clearTicketMessages();
+  if(!document.querySelector('input[name=evidence]:checked')){say('resolve-error','Select at least one evidence source.');return;}
+  let detail='';
+  if(currentType==='highway'){
+    const v=$('new-highway').value.trim();
+    if(!v){say('resolve-error','Enter the new highway name.');return;}
+    detail='Highway renamed to '+v;
+  }else if(currentType==='address'){
+    const v=$('new-address').value.trim();
+    if(!v){say('resolve-error','Enter the corrected address.');return;}
+    detail='Address changed to '+v;
+  }else{
+    const v=$('closure-status').value;
+    if(!v){say('resolve-error','Select a closure status.');return;}
+    detail='Road closure set to '+(v==='closed'?'Closed':'Open');
+  }
+  say('resolve-ok','Ticket '+current+' resolved');
+  $('result-detail').textContent=detail;
+  $('status').textContent='Resolved';$('status').classList.add('done');
+});
+</script>
+</body>
+</html>
